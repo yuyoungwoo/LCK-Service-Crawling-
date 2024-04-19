@@ -1,0 +1,277 @@
+drop table lckTicketing purge;
+drop table lckMatchPrediction purge;
+drop table lckBoardBlackList purge;
+drop table lckReplyBlackList purge;
+drop table lckMVP purge;
+drop table lckReply purge;
+drop table lckGoods purge;
+drop table lckBoardLike purge;
+drop table lckReplyLike purge;
+drop table lckMemberGoods purge;
+drop table lckLoginInfo purge;
+drop table lckVideo purge;
+
+drop table lckGame purge;
+drop table lckTeamInfo purge;
+drop table lckBoard purge;
+drop table lckMember purge;
+drop view lckgameview;
+drop VIEW lckMVPView;
+
+-- 프로필 컬럼 추가 - 프로필 이미지담는 컬럼 null 가능, null일 경우
+-- 임의의 기본이미지 띄울 예정
+-- 알림거부 컬럼 추가
+create table lckMember(
+    idx             number          generated as identity  primary key,
+    userid          varchar2(300)   not null unique,
+    userpw          varchar2(500)   not null,
+    nickname        varchar2(200)   not null,
+    email           varchar2(200)   not null,
+    favoriteTeam    varchar2(100)   not null,
+    grade           number          not null,
+    locked          number          not null   check(locked in(0,1)),
+    mainPosition    varchar2(100),
+    subPosition     varchar2(100),
+    point           number          default 0 check(point >= 0),
+    ticket          number          default 0 check(ticket >= 0),
+    profile         varchar2(500),
+    denyNotice  number default 0 check(denyNotice in(0,1)),
+    denyTime    Date	
+);
+-- 로그인정보를 담는 테이블 추가
+create table lckLoginInfo(
+	loginTime 	date	default sysdate,
+	userid	varchar2(300)	not null,
+
+	 constraint lckLoginInfo_lckMember_fk
+   	 foreign key (userid)
+    	references lckMember(userid)
+	on delete cascade
+);
+
+-- isNotice 컬럼 추가 - 공지글인지 확인하는 컬럼
+create table lckBoard(
+    idx             number    generated as identity primary key,
+    title           varchar2(300)   not null,
+    writer          varchar2(300)   not null,
+    content         varchar2(4000)  not null,
+    category        varchar2(200)   not null,
+    writeDate       date            default sysdate,
+    image           varchar2(500),
+    isNotice	       char(1)	default 0 check(isNotice in('0','1')),
+    
+    constraint lckBoard_lckMember_fk
+    foreign key (writer)
+    references lckMember(userid)
+    on delete cascade
+);
+
+-- image null 허용으로 변경
+create table lckReply(
+    idx             number          generated as identity primary key,
+    boardIdx        number          not null,
+    writer          varchar2(300)   not null,
+    content         varchar2(1000)  not null,
+    image           varchar2(500)   ,
+    
+    constraint lckReply_lckBoard_fk
+    foreign key (boardIdx)
+    references lckBoard(idx) on delete cascade,
+    
+    constraint lckReply_lckMember_fk
+    foreign key (writer)
+    references lckMember(userid) on delete cascade
+);
+
+-- userid 컬럼 추가(멤버 userid 참조)
+create table lckBoardLike(
+    idx             number          generated as identity primary key,
+    userid	     varchar2(300)	  not null,
+    boardIdx   number          not null,
+    likey           number          default 1 check(likey in(0,1)),
+    hate            number          default 1 check(hate in(0,1)),
+
+    constraint lckBoardLike_lckMember_fk
+    foreign key (userid)
+    references lckMember(userid) on delete cascade
+);
+-- replyLike 테이블 추가
+create table lckReplyLike(
+    idx             number          generated as identity primary key,
+    userid	     varchar2(300)	  not null,
+    replyIdx   number          not null,
+    likey           number          default 1 check(likey in(0,1)),
+    hate            number          default 1 check(hate in(0,1)),
+
+    constraint lckReplyLike_lckMember_fk
+    foreign key (userid)
+    references lckMember(userid) on delete cascade
+);
+-- board와 reply 분리
+create table lckBoardBlackList(
+    idx             number          generated as identity primary key,
+    reportUser      varchar2(300)   not null,
+    reportedUser    varchar2(300)   not null,
+    boardIdx   number          not null
+);
+
+create table lckReplyBlackList(
+    idx             number          generated as identity primary key,
+    reportUser      varchar2(300)   not null,
+    reportedUser    varchar2(300)   not null,
+    replyIdx   number          not null
+);
+
+create table lckGoods(
+    idx             number          generated as identity primary key,
+    name            varchar2(300)   not null,
+    ticketCount     number          not null check(ticketCount  >= 0),
+    image           varchar2(500)   not null,
+    productCount    number          default 0 not null,
+    saled           number          default 0 not null,
+    deleted         number          default 0 check(deleted in(0,1))
+);
+
+-- 추가테이블 - 멤버들이 응모에 당첨되었을 때 상품을 담을 테이블
+create table lckMemberGoods(
+	  idx             number          generated as identity primary key,
+	goodsIdx	   number		not null,
+	count		   number		default 1,
+	userid           varchar2(300)    not null
+);
+
+-- 팀 정보만 담고 팀 승률관련 정보는 따로 팀 순위 테이블 생성
+-- 팀 순위 테이블 삭제 및 팀 이미지 컬럼 추가
+create table lckTeamInfo(
+    teamName       	 varchar2(100)    not null primary key,
+    teamImg                 varchar2(500)   not null,
+    top             		varchar2(100)    not null,
+    jungle         		 varchar2(100)    not null,
+    mid            		 varchar2(100)    not null,
+    adCarry            	  varchar2(100)    not null,
+    supporter        	 varchar2(100)    not null,
+    coach         		  varchar2(100)    not null,
+     headCoach     	  varchar2(100)    not null,
+    topImageURL		 varchar2(500)	not null,
+    jungleImageURL	varchar2(500)	not null,
+    midImageURL 	varchar2(500)	not null,
+    adCarryImageURL	 varchar2(500)	not null,
+    supporterImageURL	 varchar2(500)	not null
+);
+
+
+
+-- redScore , blueScore null 허용으로 변경
+-- result 컬럼 삭제
+-- status 컬럼 추가(경기 상태 : 예정 ,진행중, 종료)
+-- stadium 경기장 정보 추가
+
+-- 경기 이름을 담는 title 컬럼 추가
+-- gameDate 컬럼 추가
+-- gameTime 자료형 변경
+create table lckGame(
+    idx              number          generated as identity primary key,
+    title	     varchar2(100)	  not null,
+    redTeam         varchar2(100)   not null,
+    blueTeam        varchar2(100)   not null,
+    redScore        number          ,
+    blueScore       number          ,
+    gameDate        date		    not null,
+    gameTime        varchar2(50)            not null,
+    status	     number		  check(status in(0,1,2)),
+    stadium		varchar2(100),
+    url             varchar2(300)   
+);
+
+-- mvpCount 컬럼 삭제
+-- 처음 mvp투표된 선수는 insert 그 후 mvp는 update로 카운트만 증가
+create table lckMVP(
+    playerName      varchar2(100)   not null,
+    userid          varchar2(300)   not null,
+    gameIdx         number          not null,
+    
+    constraint lckMVP_lckBoard_fk
+    foreign key (gameIdx)
+    references lckGame(idx) on delete cascade,
+    
+    constraint lckMVP_lckMember_fk
+    foreign key (userid)
+    references lckMember(userid)
+);
+
+create table lckMatchPrediction(
+    gameIdx         number         not null,
+    bettingTeam     number         check(bettingTeam in(0,1)),
+    userid          varchar2(300)  not null,
+    
+    constraint lckMatchPrediction_lckGame_fk
+    foreign key (gameIdx)
+    references lckGame(idx) on delete cascade,
+    
+    constraint lckMatchPrediction_lckMember_fk
+    foreign key (userid)
+    references lckMember(userid) on delete cascade
+);
+
+-- 게임 타임 컬럼 삭제
+-- idx 컬럼 추가
+create table lckTicketing(
+    idx		number        generated as identity primary key,
+    gameIdx         number        not null,
+    seat            varchar2(100) not null,
+    userid         varchar2(300) not null,
+    deleted         number        default 0 check(deleted in(0,1)),
+    
+    constraint lckTicketing_lckGame_fk
+    foreign key (gameIdx)
+    references lckGame(idx) on delete cascade,
+    
+    constraint lckTicketing_lckMember_fk
+    foreign key (userid)
+    references lckMember(userid) on delete cascade
+);
+
+CREATE VIEW lckGameView AS
+SELECT
+    g.idx,
+    g.title,
+    g.redTeam,
+    rt.teamImg AS redTeamImg,
+    g.blueTeam,
+    bt.teamImg AS blueTeamImg,
+    g.redScore,
+    g.blueScore,
+    g.gameDate,
+    g.gameTime,
+    g.status,
+    g.stadium,
+    g.url
+FROM
+    lckGame g
+LEFT JOIN
+    lckTeamInfo rt ON g.redTeam = rt.teamName
+LEFT JOIN
+    lckTeamInfo bt ON g.blueTeam = bt.teamName;
+
+
+CREATE VIEW lckMVPView AS
+SELECT 
+    gameIdx,
+    playerName,
+    COUNT(*) AS voteCount
+FROM 
+    lckmvp
+GROUP BY 
+    gameIdx, playerName;
+
+CREATE table lckVideo (
+    
+    title   varchar2(500) not null,
+    videoUrl   varchar2(500) not null,
+    imageUrl   varchar2(500) not null
+
+);
+-- 비번 1234
+insert into lckmember (userid,userpw,nickname,email,favoriteTeam,grade,mainPosition,subPosition,ticket,locked) values ('admin','4559f602e','관리자','admin@itbank.com','T1',5,'탑','정글',1000,0);
+
+commit;
